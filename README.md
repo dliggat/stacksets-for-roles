@@ -76,5 +76,41 @@ aws cloudformation create-stack --stack-name stackset-target \
     --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
 ```
 
+## Creating the StackSets
+
+With the necessary permissioning in place, we can deploy resources to other accounts. From the Administrator account, create the StackSet itself, i.e. the container that manages the rollout to the other accounts:
+
+```bash
+IDENTITY_PROVIDER_AWS_ACCOUNT_ID=111122223333
+aws cloudformation create-stack-set --stack-set-name saml-readonly \
+    --template-body file://templates/stacksets/saml-readonly-role.yaml \
+    --parameters ParameterKey=IdentityProviderAwsAccountId,ParameterValue=$IDENTITY_PROVIDER_AWS_ACCOUNT_ID \
+    --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
+```
+
+Also from the Administrator account, deploy a readonly role in each of our target accounts:
+
+```bash
+aws cloudformation create-stack-instances --stack-set-name saml-readonly \
+    --accounts '["111111111111","222222222222"]' \
+    --regions '["us-west-2"]' \
+    --operation-preferences FailureToleranceCount=0,MaxConcurrentCount=1
+```
+
+We can repeat as necessary for different roles we might wish to create. For instance, a high privilege admin role:
+
+```bash
+IDENTITY_PROVIDER_AWS_ACCOUNT_ID=111122223333
+
+aws cloudformation create-stack-set --stack-set-name saml-admin \
+    --template-body file://templates/stacksets/saml-admin-role.yaml \
+    --parameters ParameterKey=IdentityProviderAwsAccountId,ParameterValue=$IDENTITY_PROVIDER_AWS_ACCOUNT_ID \
+    --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
+aws cloudformation create-stack-instances --stack-set-name saml-admin \
+    --accounts '["111111111111","222222222222"]' \
+    --regions '["us-west-2"]' \
+    --operation-preferences FailureToleranceCount=0,MaxConcurrentCount=1
+```
+
 
 [ss]: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/what-is-cfnstacksets.html
